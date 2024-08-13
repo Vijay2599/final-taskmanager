@@ -70,58 +70,44 @@ const sqlproject = `CREATE TABLE IF NOT EXISTS project (
 
   app.post('/register', async(req, res)=>{
     const {username, password, type} = req.body;
-    try{
         if (username!=="" && password!=="" && type!==""){
             const hashedpassword = await bcrypt.hash(req.body.password, 10);
             const sql = `SELECT * FROM user WHERE user_name=?`;
             db.get(sql, [req.body.username], async function(err, rows){
-                if (err) throw err;
+                if (err) return res.send("selection process errored");
                 if (rows) {
-                    res.status(200);
                     res.send("username already exists");
                 }else{
                     const insertQuery = `INSERT INTO user (user_name, user_password, user_type) VALUES (?,?,?)`;
                     await db.run(insertQuery, [req.body.username, hashedpassword, req.body.type], function(err){
-                        if (err) throw err
-                        res.status(201)
+                        if (err) return res.send("table inserted error")
                         res.send("Registered successfully")
                     })
                 }
             })
         }else{
-            res.status(200)
             res.send('please enter valid inputs')
         }
-    } catch (e){
-        res.status(400)
-    }
   })
 
-  app.post('/login', (req, res)=>{
-    try{
+  app.post('/login', async(req, res)=>{
         const {username, password} = req.body
-        db.get(`SELECT * FROM user WHERE user_name=?`, [req.body.username], async(err, rows)=>{
-            if (err) throw err.message
+        await db.get(`SELECT * FROM user WHERE user_name=?`, [req.body.username], async(err, rows)=>{
+            if (err) return res.send("login table error")
             if(rows){
                 const passmatched = await bcrypt.compare(password, rows.user_password)
                 if(passmatched===true){
                     const payload = {username, password, type:rows.user_type}
                     const jwtToken = await jwt.sign(payload, "RESIPROCAL_KEY")
                     res.set("content_type", "application/json")
-                    res.status(200)
                     res.send({jwtToken})
                 }else{
-                    res.status(401)
                     res.send("Password invalid")
                 }
             }else{
-                res.status(402)
                 res.send("Inavlid user")
             }
         })
-    }catch(e){
-        res.status(440)
-    }
   })
 
 
@@ -136,7 +122,6 @@ const sqlproject = `CREATE TABLE IF NOT EXISTS project (
     } else {
       jwt.verify(jwtToken, "RESIPROCAL_KEY", async (error, payload) => {
         if (error) {
-          response.status(400)
           response.send("json not match");
         } else {
           request.payload=payload
@@ -151,16 +136,15 @@ app.get('/dashboardview', authenticateToken, async (req, res)=>{
     if(req.payload.type==="admin"){
         const adminQuery = `SELECT * FROM user`
         await db.all(adminQuery,[], (err, rows)=>{
-            if (err){}
-            res.status(200)
+            if (err) return res.send("admin selection table error")
             res.send(rows)
         })
     }
     else{
         const memberQuery =`SELECT * FROM user WHERE user_name=?`
-        db.get(memberQuery,[payload.username], (err, rows)=>{
-            res.status(200)
-            res.send({rows})
+        db.all(memberQuery,[payload.username], (err, rows)=>{
+            if (err) return res.send("member selection error")
+            res.send(rows)
         })
     }
     
@@ -186,7 +170,15 @@ app.get('/dashboard/singleuserdelete/:id', async (req, res)=>{
     const sql = `DELETE FROM user WHERE user_id=?`
     await db.run(sql,[deleteId],(err)=>{
         res.status(200)
-        res.send('deleted')
+    })
+    
+})
+
+app.get('/dashboard/projectdelete/:id', async (req, res)=>{
+    const deleteId = req.params.id
+    const sql = `DELETE FROM project WHERE project_id=?`
+    await db.run(sql,[deleteId],(err)=>{
+        res.status(200)
     })
     
 })
@@ -196,11 +188,20 @@ app.get('/projectItems/:id', async (req, res)=>{
     const sql = `SELECT * FROM project WHERE user_id=?`
     await db.all(sql, [userId], async(err, row)=>{
         if(err){
-            await db.get(sql, [userId], (err, rows)=>{
-                if (err) res.send('no project')
-                res.status(200)
-                res.send({rows})
-            })
+            res.send("error")
+        }else{
+            res.status(201)
+            res.send(row)
+        }
+    })
+})
+
+app.get('/task/:id', async (req, res)=>{
+    const userId=req.params.id
+    const sql = `SELECT * FROM task WHERE project_id=?`
+    await db.all(sql, [userId], async(err, row)=>{
+        if(err){
+            res.send("error")
         }else{
             res.status(201)
             res.send(row)
@@ -209,22 +210,29 @@ app.get('/projectItems/:id', async (req, res)=>{
 })
 
 app.post('/createproject/:id', async(req, res)=>{
-    await db.run(`INSERT INTO projct (project_name, user_id) VALUES (?,?)`, [req.body.projectname, req.params.id])
-    await db.get(`SELECT * FROM project WHERE user_id=?`, [req.params.id], async(err, row)=>{
-        if(err){
-            await db.get(`SELECT * FROM project WHERE user_id=?`, [req.params.id], (err, rows)=>{
-                if (err) res.send('no project')
-                res.status(200)
-                res.send({rows})
-            })
-        }else{
-            res.status(201)
-            res.send(row)
-        }
-    })
-
+    await db.run(`INSERT INTO project (project_name, user_id) VALUES (?,?)`, [req.body.projectname, req.params.id])
 })
 
+app.post('/createtask/:id', async(req, res)=>{
+    await db.run(`INSERT INTO task (task_description, task_status, project_id) VALUES (?,?,?)`, [req.body.taskname, req.body.status, req.params.id])
+})
+
+app.get('/dashboard/taskdelete/:id', async (req, res)=>{
+    const deleteId = req.params.id
+    const sql = `DELETE FROM task WHERE task_id=?`
+    await db.run(sql,[deleteId],(err)=>{
+        res.status(200)
+    })
+})
+
+app.put('/dashboard/taskupdate/:id', async (req, res)=>{
+    const id = req.params.id
+    const sql = `UPDATE task SET task_description=?, task_status=? WHERE task_id=?`
+    await db.run(sql,[req.body.taskname, req.body.status, id],(err)=>{
+        res.status(200)
+    })
+    
+})
 
   db.all(`SELECT * FROM user`,[],(err, rows)=>{
     console.log(rows)
