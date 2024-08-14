@@ -7,6 +7,8 @@ const sqlite3 = require('sqlite3').verbose();
 
 const app = express();
 app.use(bodyParser.json())
+
+const port = process.env.PORT || 8000
 app.use(cors())
 let db=new sqlite3.Database('./database.db', sqlite3.OPEN_READWRITE, (err)=>{
     if(err) {
@@ -238,7 +240,7 @@ app.put('/dashboard/taskupdate/:id', async (req, res)=>{
     console.log(rows)
   })  
 
-app.listen(8000, (err)=>{
+app.listen(port, (err)=>{
     if(err){
         console.log('error:', err.message)
     }else{
