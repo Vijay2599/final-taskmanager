@@ -1,0 +1,42 @@
+h1{
+    color: aliceblue;
+}
+
+.dash-container{
+    min-height: 100vh;
+    width: 100vw;
+    background-color: rgb(2, 43, 80);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center  ;
+    overflow: auto;
+}
+
+.user-unorder{
+    list-style-type: none;
+    width: 80%;
+    margin: 5px auto;
+}
+.user-list-item{
+    margin: 5px;
+    padding: 10px;
+    background-color: aliceblue;
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+
+}
+.user-button{
+width: 80%;
+text-align: left;
+border: none;
+color: red;
+}
+.user-delete-button{
+    border: none;
+    color: aliceblue;
+    background-color: rgb(252, 11, 11);
+    padding:5px 10px;
+    border-radius: 5px;
+}
